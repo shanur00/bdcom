@@ -334,19 +334,3 @@ movl 8(%eax,%ebx,4), %ecx   ; Address = 8 + EAX + (EBX × 4)
 
 ; If EAX = 0x1000, EBX = 2 → Address = 8 + 0x1000 + 8 = 0x1010
 ```
-
-**Use case:** 2D arrays or struct arrays
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│   C code: struct { int a, b, c; } arr[10];                  │
-│           value = arr[i]. b;                                 │
-│                                                             │
-│   EAX = base address of arr                                 │
-│   EBX = index i                                             │
-│   Scale = 12 (size of struct...  but usually use 4 or 8)     │
-│   Offset = 4 (offset of field 'b' within struct)            │
-│                                                             │
-│   movl 4(%eax,%ebx,4), %ecx   ; Simplified example          │
-└─────────────────────────────────────────────────────────────┘
-```

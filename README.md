@@ -334,3 +334,254 @@ movl 8(%eax,%ebx,4), %ecx   ; Address = 8 + EAX + (EBX × 4)
 
 ; If EAX = 0x1000, EBX = 2 → Address = 8 + 0x1000 + 8 = 0x1010
 ```
+
+# Understanding MOV Instructions — Line by Line
+
+Let me break down each sentence in simple terms!  
+
+---
+
+## Line 1: Source Operand
+
+> *"The source operand designates a value that is immediate, stored in a register, or stored in memory."*
+
+### Meaning: **Where can data COME FROM?**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   SOURCE (where data comes from) can be:                    │
+│                                                             │
+│   1.   IMMEDIATE  →  A constant value like $100              │
+│   2.  REGISTER   →  A register like %eax                    │
+│   3. MEMORY     →  A memory address like (%ebx)            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```asm
+movl $100, %eax       ; Source = Immediate ($100)
+movl %ebx, %eax       ; Source = Register (%ebx)
+movl (%ecx), %eax     ; Source = Memory (address in %ecx)
+```
+
+---
+
+## Line 2: Destination Operand
+
+> *"The destination operand designates a location that is either a register or a memory address."*
+
+### Meaning: **Where can data GO TO?**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   DESTINATION (where data goes) can be:                     │
+│                                                             │
+│   1.  REGISTER  →  Like %eax                                │
+│   2. MEMORY    →  Like (%ebx) or 0x1000                    │
+│                                                             │
+│   ✗ NOT immediate!  (Can't store into a number)              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```asm
+movl $100, %eax       ; Destination = Register ✓
+movl $100, (%ebx)     ; Destination = Memory ✓
+movl $100, $200       ; Destination = Immediate ✗ IMPOSSIBLE!
+```
+
+**Why?** You can't store a value INTO a constant number — that makes no sense!  
+
+---
+
+## Line 3: Memory-to-Memory Restriction
+
+> *"x86-64 imposes the restriction that a move instruction cannot have both operands refer to memory locations."*
+
+### Meaning: **Can't move directly from memory to memory! **
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   ✗ ILLEGAL:                                                │
+│                                                             │
+│   movl (%eax), (%ebx)    ; Memory → Memory = NOT ALLOWED!    │
+│                                                             │
+│         Memory              Memory                          │
+│        ┌──────┐            ┌──────┐                         │
+│        │  50  │  ──────✗──▶│      │                         │
+│        └──────┘            └──────┘                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Line 4: Two-Step Solution
+
+> *"Copying a value from one memory location to another requires two instructions—the first to load the source value into a register, and the second to write this register value to the destination."*
+
+### Meaning: **Use a register as a "middleman"**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   To copy Memory → Memory, use 2 steps:                     │
+│                                                             │
+│   Step 1: Memory → Register                                 │
+│   Step 2: Register → Memory                                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```asm
+# Goal: Copy value from address in %eax to address in %ebx
+
+movl (%eax), %ecx     ; Step 1: Load from memory into register
+movl %ecx, (%ebx)     ; Step 2: Store from register into memory
+```
+
+```
+    Memory A           Register           Memory B
+   ┌──────┐           ┌──────┐           ┌──────┐
+   │  50  │ ──Step1──▶│  50  │ ──Step2──▶│  50  │
+   └──────┘           └──────┘           └──────┘
+   (%eax)              %ecx               (%ebx)
+```
+
+---
+
+## Line 5: Register Size Must Match
+
+> *"Register operands for these instructions can be the labeled portions of any of the 16 registers, where the size of the register must match the size designated by the last character of the instruction ('b', 'w', 'l', or 'q')."*
+
+### Meaning: **Instruction suffix must match register size**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   Suffix    Size        Register Example                    │
+│   ──────    ────        ─────────────────                   │
+│     b       1 byte      %al, %bl, %cl                       │
+│     w       2 bytes     %ax, %bx, %cx                       │
+│     l       4 bytes     %eax, %ebx, %ecx                    │
+│     q       8 bytes     %rax, %rbx, %rcx                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```asm
+movb $100, %al        ; b = byte (1) → %al (1 byte) ✓
+movw $100, %ax        ; w = word (2) → %ax (2 bytes) ✓
+movl $100, %eax       ; l = long (4) → %eax (4 bytes) ✓
+movq $100, %rax       ; q = quad (8) → %rax (8 bytes) ✓
+
+movl $100, %al        ; l (4 bytes) with %al (1 byte) ✗ MISMATCH!
+```
+
+---
+
+## Line 6: Partial Register Update
+
+> *"For most cases, the mov instructions will only update the specific register bytes or memory locations indicated by the destination operand."*
+
+### Meaning: **Only the specified bytes change, rest stays same**
+
+```asm
+# Assume %rax = 0x1234567890ABCDEF (64 bits)
+
+movb $0xFF, %al       ; Only changes lowest 1 byte
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   BEFORE: %rax = 0x1234567890ABCDEF                         │
+│                                                             │
+│   ┌────┬────┬────┬────┬────┬────┬────┬────┐                 │
+│   │ 12 │ 34 │ 56 │ 78 │ 90 │ AB │ CD │ EF │                 │
+│   └────┴────┴────┴────┴────┴────┴────┴────┘                 │
+│                                              ▲               │
+│                                              │               │
+│                                         %al (this byte)     │
+│                                                             │
+│   movb $0xFF, %al                                           │
+│                                                             │
+│   AFTER: %rax = 0x1234567890ABCDFF                          │
+│                                                             │
+│   ┌────┬────┬────┬────┬────┬────┬────┬────┐                 │
+│   │ 12 │ 34 │ 56 │ 78 │ 90 │ AB │ CD │ FF │ ← Only this     │
+│   └────┴────┴────┴────┴────┴────┴────┴────┘   changed!      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Line 7 & 8: The `movl` Exception! 
+
+> *"The only exception is that when movl has a register as the destination, it will also set the high-order 4 bytes of the register to 0."*
+
+> *"This exception arises from the convention, adopted in x86-64, that any instruction that generates a 32-bit value for a register also sets the high-order portion of the register to 0."*
+
+### Meaning: **`movl` to register = upper 32 bits become ZERO! **
+
+```asm
+# Assume %rax = 0xFFFFFFFFFFFFFFFF (all 1s)
+
+movl $0x12345678, %eax    ; Writes to lower 32 bits AND clears upper 32! 
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   BEFORE: %rax = 0xFFFFFFFFFFFFFFFF                         │
+│                                                             │
+│   ┌────────────────────┬────────────────────┐               │
+│   │   FF FF FF FF      │   FF FF FF FF      │               │
+│   │   (upper 32 bits)  │   (lower 32 bits)  │               │
+│   └────────────────────┴────────────────────┘               │
+│                                                             │
+│   movl $0x12345678, %eax                                    │
+│                                                             │
+│   AFTER: %rax = 0x0000000012345678                          │
+│                                                             │
+│   ┌────────────────────┬────────────────────┐               │
+│   │   00 00 00 00      │   12 34 56 78      │               │
+│   │   (ZEROED!  )        │   (new value)      │               │
+│   └────────────────────┴────────────────────┘               │
+│                                                             │
+│   Upper 32 bits automatically become 0!                      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Comparison: `movb`, `movw` vs `movl`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   %rax starts as: 0xFFFFFFFFFFFFFFFF                        │
+│                                                             │
+│   ┌────────────┬─────────────────────────────────────────┐  │
+│   │ Instruction│  Result in %rax                         │  │
+│   ├────────────┼─────────────────────────────────────────┤  │
+│   │ movb $1,%al│  0xFFFFFFFFFFFFFF01  (only 1 byte)      │  │
+│   ├────────────┼─────────────────────────────────────────┤  │
+│   │ movw $1,%ax│  0xFFFFFFFFFFFF0001  (only 2 bytes)     │  │
+│   ├────────────┼─────────────────────────────────────────┤  │
+│   │movl $1,%eax│  0x0000000000000001  (upper CLEARED!)   │  │
+│   ├────────────┼─────────────────────────────────────────┤  │
+│   │movq $1,%rax│  0x0000000000000001  (full 8 bytes)     │  │
+│   └────────────┴─────────────────────────────────────────┘  │
+│                                                             │
+│   movb, movw → Keep upper bits                              │
+│   movl       → Clear upper 32 bits (EXCEPTION!)             │
+│   movq       → Writes all 64 bits                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```

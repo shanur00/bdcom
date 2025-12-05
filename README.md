@@ -585,3 +585,246 @@ movl $0x12345678, %eax    ; Writes to lower 32 bits AND clears upper 32!
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+# Understanding `movq` vs `movabsq` — Line by Line
+
+Let me break down each sentence simply! 
+
+---
+
+## Line 1: The Problem
+
+> *"A final instruction documented in Figure 3.4 is for dealing with 64-bit immediate data."*
+
+### Meaning: **We need a special instruction for big 64-bit numbers**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   Problem: How do we put a HUGE 64-bit number               │
+│            directly into a register?                        │
+│                                                             │
+│   Example: 0x123456789ABCDEF0 (a big 64-bit value)          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Line 2: `movq` Limitation
+
+> *"The regular movq instruction can only have immediate source operands that can be represented as 32-bit two's-complement numbers."*
+
+### Meaning: **`movq` can only use immediate values that fit in 32 bits! **
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   movq can only use immediates from:                        │
+│                                                             │
+│   -2,147,483,648  to  +2,147,483,647                        │
+│   (−2³¹)              (+2³¹ − 1)                            │
+│                                                             │
+│   In hex: 0x80000000 to 0x7FFFFFFF                          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```asm
+movq $100, %rax           ; ✓ OK (100 fits in 32 bits)
+movq $0x7FFFFFFF, %rax    ; ✓ OK (max positive 32-bit)
+movq $0x123456789, %rax   ; ✗ TOO BIG!  (needs more than 32 bits)
+```
+
+---
+
+## Line 3: Sign Extension
+
+> *"This value is then sign extended to produce the 64-bit value for the destination."*
+
+### Meaning: **The 32-bit value is expanded to 64 bits by copying the sign bit**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   SIGN EXTENSION = Copy the leftmost bit to fill 64 bits    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Example 1: Positive Number
+
+```asm
+movq $0x12345678, %rax    ; Positive (sign bit = 0)
+```
+
+```
+32-bit value:         0x12345678
+                      │
+Sign bit = 0 ─────────┘ (positive)
+
+Sign extend with 0s:
+
+┌────────────────────────────────┬────────────────────────────────┐
+│   00   00   00   00            │   12   34   56   78            │
+│   (filled with 0s)             │   (original value)             │
+└────────────────────────────────┴────────────────────────────────┘
+
+Result in %rax: 0x0000000012345678 ✓
+```
+
+### Example 2: Negative Number
+
+```asm
+movq $-1, %rax    ; Negative (sign bit = 1)
+```
+
+```
+32-bit value:         0xFFFFFFFF  (-1 in two's complement)
+                      │
+Sign bit = 1 ─────────┘ (negative)
+
+Sign extend with 1s (0xFF):
+
+┌────────────────────────────────┬────────────────────────────────┐
+│   FF   FF   FF   FF            │   FF   FF   FF   FF            │
+│   (filled with 1s)             │   (original value)             │
+└────────────────────────────────┴────────────────────────────────┘
+
+Result in %rax: 0xFFFFFFFFFFFFFFFF ✓ (still -1, just 64-bit now)
+```
+
+### Another Negative Example
+
+```asm
+movq $0x80000000, %rax    ; This is -2147483648 (negative!)
+```
+
+```
+32-bit value:         0x80000000
+                      │
+Sign bit = 1 ─────────┘ (negative, because bit 31 = 1)
+
+Sign extend with 1s:
+
+┌────────────────────────────────┬────────────────────────────────┐
+│   FF   FF   FF   FF            │   80   00   00   00            │
+│   (filled with 1s!)            │   (original value)             │
+└────────────────────────────────┴────────────────────────────────┘
+
+Result in %rax: 0xFFFFFFFF80000000
+
+NOT 0x0000000080000000!  ⚠️
+```
+
+---
+
+## Line 4: `movabsq` Solution
+
+> *"The movabsq instruction can have an arbitrary 64-bit immediate value as its source operand and can only have a register as a destination."*
+
+### Meaning: **`movabsq` can handle ANY 64-bit number, but only to registers**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   movabsq = "move absolute quad"                            │
+│                                                             │
+│   ✓ Can use full 64-bit immediate (any value!)              │
+│   ✗ Destination must be a register (not memory)             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```asm
+movabsq $0x123456789ABCDEF0, %rax   ; ✓ Full 64-bit value! 
+movabsq $0x123456789ABCDEF0, (%rbx) ; ✗ Can't use memory destination! 
+```
+
+---
+
+## Comparison: `movq` vs `movabsq`
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                        movq                    movabsq                  │
+│                        ────                    ───────                  │
+│                                                                         │
+│   Immediate size:      32-bit max              64-bit (any value)       │
+│                                                                         │
+│   Sign extension:      Yes                     No (exact value used)    │
+│                                                                         │
+│   Destination:         Register or Memory      Register ONLY            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Visual Example
+
+### Goal: Put `0x0000000080000000` in %rax
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│   Using movq $0x80000000, %rax                                          │
+│                                                                         │
+│   32-bit: 0x80000000 (sign bit = 1, negative!)                          │
+│                      │                                                  │
+│                      ▼                                                  │
+│   Sign extend ───▶ 0xFFFFFFFF80000000 ← NOT what we wanted!  ✗         │
+│                                                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Using movabsq $0x0000000080000000, %rax                               │
+│                                                                         │
+│   64-bit: 0x0000000080000000 (exact value, no sign extension)           │
+│                      │                                                  │
+│                      ▼                                                  │
+│   Result ────────▶ 0x0000000080000000 ← Exactly what we wanted! ✓      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## When to Use Which? 
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   Use movq when:                                            │
+│   ─────────────                                             │
+│   • Your value fits in 32 bits                              │
+│   • You want sign extension behavior                        │
+│   • You need to write to memory                             │
+│                                                             │
+│   movq $100, %rax        ; Small positive ✓                 │
+│   movq $-5, %rax         ; Small negative ✓                 │
+│   movq $100, (%rbx)      ; To memory ✓                      │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   Use movabsq when:                                         │
+│   ────────────────                                          │
+│   • Your value is larger than 32 bits                       │
+│   • You need exact 64-bit value (no sign extension)         │
+│                                                             │
+│   movabsq $0x123456789ABC, %rax    ; Big number ✓           │
+│   movabsq $0x0000000080000000, %rax; Exact value needed ✓   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## One-Line Summary
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   movq    = 32-bit immediate → sign extend → 64-bit         │
+│                                                             │
+│   movabsq = 64-bit immediate → exact copy → 64-bit          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```

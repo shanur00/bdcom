@@ -352,9 +352,9 @@ Let me break down each sentence in simple terms!
 │                                                             │
 │   SOURCE (where data comes from) can be:                    │
 │                                                             │
-│   1.   IMMEDIATE  →  A constant value like $100              │
+│   1.  IMMEDIATE  →  A constant value like $100              │
 │   2.  REGISTER   →  A register like %eax                    │
-│   3. MEMORY     →  A memory address like (%ebx)            │
+│   3.  MEMORY     →  A memory address like (%ebx)            │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

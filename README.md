@@ -7,13 +7,13 @@ This table shows different ways to **access data** in x86 assembly.  Let me expl
 ## Overview: Where Can Data Be? 
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│   1.  IMMEDIATE  →  Value is in the instruction itself      │
+┌────────────────────────────────────────────────────────────┐
+│                                                            │
+│   1.  IMMEDIATE  →  Value is in the instruction itself     │
 │   2. REGISTER   →  Value is in a CPU register              │
 │   3. MEMORY     →  Value is in RAM (need address)          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -379,9 +379,9 @@ movl (%ecx), %eax     ; Source = Memory (address in %ecx)
 │   DESTINATION (where data goes) can be:                     │
 │                                                             │
 │   1.  REGISTER  →  Like %eax                                │
-│   2. MEMORY    →  Like (%ebx) or 0x1000                    │
+│   2. MEMORY    →  Like (%ebx) or 0x1000                     │
 │                                                             │
-│   ✗ NOT immediate!  (Can't store into a number)              │
+│   ✗ NOT immediate!  (Can't store into a number)             │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -407,11 +407,11 @@ movl $100, $200       ; Destination = Immediate ✗ IMPOSSIBLE!
 │                                                             │
 │   ✗ ILLEGAL:                                                │
 │                                                             │
-│   movl (%eax), (%ebx)    ; Memory → Memory = NOT ALLOWED!    │
+│   movl (%eax), (%ebx)    ; Memory → Memory = NOT ALLOWED!   │
 │                                                             │
 │         Memory              Memory                          │
 │        ┌──────┐            ┌──────┐                         │
-│        │  50  │  ──────✗──▶│      │                         │
+│        │  50  │  ─────✗──▶│      │                         │
 │        └──────┘            └──────┘                         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -446,7 +446,7 @@ movl %ecx, (%ebx)     ; Step 2: Store from register into memory
 ```
     Memory A           Register           Memory B
    ┌──────┐           ┌──────┐           ┌──────┐
-   │  50  │ ──Step1──▶│  50  │ ──Step2──▶│  50  │
+   │  50  │ ─Step1──▶│  50  │ ──Step2──▶│  50  │
    └──────┘           └──────┘           └──────┘
    (%eax)              %ecx               (%ebx)
 ```
@@ -503,8 +503,8 @@ movb $0xFF, %al       ; Only changes lowest 1 byte
 │   ┌────┬────┬────┬────┬────┬────┬────┬────┐                 │
 │   │ 12 │ 34 │ 56 │ 78 │ 90 │ AB │ CD │ EF │                 │
 │   └────┴────┴────┴────┴────┴────┴────┴────┘                 │
-│                                              ▲               │
-│                                              │               │
+│                                          ▲                  │
+│                                          │                  │
 │                                         %al (this byte)     │
 │                                                             │
 │   movb $0xFF, %al                                           │
@@ -550,10 +550,10 @@ movl $0x12345678, %eax    ; Writes to lower 32 bits AND clears upper 32!
 │                                                             │
 │   ┌────────────────────┬────────────────────┐               │
 │   │   00 00 00 00      │   12 34 56 78      │               │
-│   │   (ZEROED!  )        │   (new value)      │               │
+│   │   (ZEROED!  )      │   (new value)      │               │
 │   └────────────────────┴────────────────────┘               │
 │                                                             │
-│   Upper 32 bits automatically become 0!                      │
+│   Upper 32 bits automatically become 0!                     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

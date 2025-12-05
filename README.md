@@ -1,6 +1,6 @@
 # x86 Addressing Modes Explained Simply
 
-This table shows different ways to **access data** in x86 assembly.  Let me explain each one with easy examples! 
+This table shows different ways to **access data** in x86 assembly.  Let me explain each one with easy examples!  
 
 ---
 
